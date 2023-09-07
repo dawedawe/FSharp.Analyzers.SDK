@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="PartialAppAnalyzer.fs" />
+    <Compile Include="PartialAppAnalyzer2.fs" />
+    <Compile Include="xwarnherex.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="7.0.200" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="43.7.200" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\FSharp.Analyzers.SDK\FSharp.Analyzers.SDK.fsproj" />
+  </ItemGroup>
+
+</Project>
