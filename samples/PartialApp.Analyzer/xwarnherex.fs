@@ -35,7 +35,7 @@ module MyMod =
     let _ = (if true then myGenFunc<int> 23 42 else myFunc 23) 88   // should warn
     
     let _ = (match 123 with | 1 -> myGenFunc<int> 1 2 | 2 -> myFunc 1) 22   // should warn
-    let _ = (match 123 with | 1 -> myGenFunc<int> 1 2 3 | 2 -> myFunc 1 2)  // should not warn XXX2
+    let _ = (match 123 with | 1 -> myGenFunc<int> 1 2 3 | 2 -> myFunc 1 2)  // should not warn
     
     let _ = myFunc (if true then 1 else 0)  // should warn
     let _ = myFunc (if true then 1 else 0) (if true then 1 else 0) // should not warn
@@ -44,7 +44,7 @@ module MyMod =
     let _ = myFunc (23 |> function | 1 -> 23 | _ -> 42)     // should warn
     
     let _ = (23 |> function | 1 -> myFunc | _ -> myGenFunc<int> 23) 42              // should warn
-    let _ = (23 |> function | 1 -> myFunc 23 42 | _ -> myGenFunc<int> 23 42 101)    // should not warn XXX2
+    let _ = (23 |> function | 1 -> myFunc 23 42 | _ -> myGenFunc<int> 23 42 101)    // should not warn
     
     let xxx =
         let r = {

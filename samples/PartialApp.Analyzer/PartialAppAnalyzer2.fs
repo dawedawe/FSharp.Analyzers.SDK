@@ -20,42 +20,39 @@ let collectExprFromMatchClauses (clauses: SynMatchClause list) =
               resultExpr ])
     |> List.concat
 
-let rec visitApp (handler: Handler) (expr: SynExpr) =
+let rec visitApp (handler: Handler) (depth: int) (expr: SynExpr) =
     match expr with
     | SynExpr.App(funcExpr = SynExpr.Paren(expr = expr); argExpr = argExpr) ->
-        visitApp handler expr
+        visitApp handler depth expr
         visitExpr handler argExpr
-    | SynExpr.App(funcExpr = SynExpr.Ident i) -> handler (i.idText, i.idRange, 1)
+    | SynExpr.App(funcExpr = SynExpr.Ident i) -> handler (i.idText, i.idRange, 1 + depth)
     | SynExpr.App(funcExpr = SynExpr.LongIdent(longDotId = longDotId); argExpr = argExpr) ->
         let i = longDotId.IdentsWithTrivia |> Seq.last
 
         match i with
         | SynIdent.SynIdent(ident = ident) ->
-            handler (ident.idText, longDotId.Range, 1)
-            visitApp handler argExpr
+            handler (ident.idText, longDotId.Range, 1 + depth)
+            visitApp handler depth argExpr
     | SynExpr.App(funcExpr = SynExpr.App _ as funcExpr; argExpr = argExpr) ->
-        let incrementingHandler: Handler =
-            fun (ident, r, args) -> state.Add(ident, r, args + 1)
-
-        visitApp incrementingHandler funcExpr
-        visitApp handler argExpr
-    | SynExpr.App(funcExpr = SynExpr.TypeApp(expr = SynExpr.Ident i)) -> handler (i.idText, i.idRange, 1)
+        visitApp handler (1 + depth) funcExpr
+        visitApp handler depth argExpr
+    | SynExpr.App(funcExpr = SynExpr.TypeApp(expr = SynExpr.Ident i)) -> handler (i.idText, i.idRange, 1 + depth)
     | SynExpr.App(funcExpr = SynExpr.TypeApp(expr = SynExpr.LongIdent(longDotId = longDotId))) ->
         let i = longDotId.IdentsWithTrivia |> Seq.last
 
         match i with
-        | SynIdent.SynIdent(ident = ident) -> handler (ident.idText, longDotId.Range, 1)
+        | SynIdent.SynIdent(ident = ident) -> handler (ident.idText, longDotId.Range, 1 + depth)
     | SynExpr.IfThenElse(ifExpr = ifExpr; thenExpr = thenExpr; elseExpr = elseExpr) ->
-        visitApp handler ifExpr
-        visitApp handler thenExpr
-        Option.iter (visitApp handler) elseExpr
+        visitApp handler depth ifExpr
+        visitApp handler depth thenExpr
+        Option.iter (visitApp handler depth) elseExpr
     | SynExpr.Match(expr = expr; clauses = clauses) ->
         let matchExprs = collectExprFromMatchClauses clauses
-        visitApp handler expr
-        List.iter (visitApp handler) matchExprs
+        visitApp handler depth expr
+        List.iter (visitApp handler depth) matchExprs
     | SynExpr.MatchLambda(matchClauses = matchClauses) ->
         let matchExprs = collectExprFromMatchClauses matchClauses
-        List.iter (visitApp handler) matchExprs
+        List.iter (visitApp handler depth) matchExprs
     | SynExpr.App(funcExpr = SynExpr.DotGet _) -> ()
     | SynExpr.App(funcExpr = SynExpr.DotIndexedGet _) -> ()
     | SynExpr.App(funcExpr = SynExpr.TypeApp(expr = SynExpr.DotIndexedGet _)) -> ()
@@ -82,7 +79,7 @@ and visitInterpolatedStringParts (handler: Handler) (part: SynInterpolatedString
 
 and visitExpr (handler: Handler) (expr: SynExpr) =
     match expr with
-    | SynExpr.App _ as e -> visitApp handler e
+    | SynExpr.App _ as e -> visitApp handler 0 e
     | SynExpr.Lambda(body = body) -> visitExpr handler body
     | SynExpr.LetOrUse(bindings = bindings; body = body) ->
         List.iter (visitBinding handler) bindings
