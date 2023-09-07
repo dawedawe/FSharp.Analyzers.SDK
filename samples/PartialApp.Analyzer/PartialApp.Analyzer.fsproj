@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <Compile Include="PartialAppAnalyzer.fs" />
-    <Compile Include="PartialAppAnalyzer2.fs" />
     <Compile Include="xwarnherex.fs" />
   </ItemGroup>
 
