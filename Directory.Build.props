@@ -7,6 +7,13 @@
     <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <FsDocsLicenseLink>https://github.com/ionide/FSharp.Analyzers.SDK/blob/master/LICENSE.md</FsDocsLicenseLink>
+    <FsDocsReleaseNotesLink>https://github.com/ionide/FSharp.Analyzers.SDK/blob/master/CHANGELOG.md</FsDocsReleaseNotesLink>
+    <RepositoryUrl>https://github.com/ionide/FSharp.Analyzers.SDK</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

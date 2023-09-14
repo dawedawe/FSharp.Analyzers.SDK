@@ -11,11 +11,14 @@ type Handler = string * FSharp.Compiler.Text.range * int -> unit
 let collectExprFromMatchClauses (clauses: SynMatchClause list) =
     clauses
     |> List.map (fun (SynMatchClause(whenExpr = whenExpr; resultExpr = resultExpr)) ->
-        [ if Option.isSome whenExpr then
-              whenExpr.Value
-          else
-              ()
-              resultExpr ])
+        [
+            if Option.isSome whenExpr then
+                whenExpr.Value
+            else
+                ()
+                resultExpr
+        ]
+    )
     |> List.concat
 
 let rec visitApp (handler: Handler) (depth: int) (expr: SynExpr) =
@@ -261,7 +264,8 @@ let tryGetParameterCount (symbolUses: FSharpSymbolUse array) r =
     |> Option.map (fun s ->
         match s.Symbol with
         | :? FSharpMemberOrFunctionOrValue as mfv -> Some mfv.CurriedParameterGroups.Count
-        | _ -> None)
+        | _ -> None
+    )
     |> Option.flatten
 
 [<Analyzer "PartialAppAnalyzer">]
@@ -285,12 +289,14 @@ let partialAppAnalyzer: Analyzer =
                     if providedArgsCount < paramsCount then // use LESS because of CEs, printf, etc.
 
                         let msg =
-                            { Type = "Partial Application Analyzer"
-                              Message = $"partial application should not be used: {ident} at {range}"
-                              Code = "PA001"
-                              Severity = Warning
-                              Range = range
-                              Fixes = [] }
+                            {
+                                Type = "Partial Application Analyzer"
+                                Message = $"partial application should not be used: {ident} at {range}"
+                                Code = "PA001"
+                                Severity = Warning
+                                Range = range
+                                Fixes = []
+                            }
 
                         yield msg
                 | None -> ()
