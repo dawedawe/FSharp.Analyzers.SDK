@@ -39,9 +39,9 @@ module MyMod =
 
     let _ =
         (match 123 with
-         | 1 -> myGenFunc<int> 1 2
-         | 2 -> myFunc 1)
-            22 // should warn
+         | 1 -> myGenFunc<int> 1 2 // should warn
+         | 2 -> myFunc 1) // should warn
+            22
 
     let _ =
         (match 123 with
@@ -60,19 +60,19 @@ module MyMod =
             111 // should not warn
 
     let _ =
-        myFunc (
+        myFunc ( // should warn
             23
             |> function
                 | 1 -> 23
                 | _ -> 42
-        ) // should warn
+        )
 
     let _ =
         (23
          |> function
-             | 1 -> myFunc
-             | _ -> myGenFunc<int> 23)
-            42 // should warn
+             | 1 -> myFunc // should not warn because no app
+             | _ -> myGenFunc<int> 23) // should warn
+            42
 
     let _ =
         (23

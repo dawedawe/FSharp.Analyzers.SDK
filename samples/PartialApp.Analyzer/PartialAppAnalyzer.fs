@@ -62,7 +62,7 @@ let rec visitApp (handler: Handler) (depth: int) (expr: SynExpr) =
     | SynExpr.LongIdent _ -> ()
 
     | _ ->
-        printfn $"visitApp: not supported yet {expr}"
+        // printfn $"visitApp: not supported yet {expr}"
         ()
 
 and visitMatchClause (handler: Handler) (SynMatchClause(resultExpr = resultExpr; whenExpr = whenExpr)) =
@@ -286,7 +286,7 @@ let partialAppAnalyzer: Analyzer =
 
                 match parameterCount with
                 | Some paramsCount ->
-                    if providedArgsCount < paramsCount then // use LESS because of CEs, printf, etc.
+                    if providedArgsCount < paramsCount then // use LESS, not NOT EQUAL because of CEs, printf, etc. take more than paramsCount
 
                         let msg =
                             {
