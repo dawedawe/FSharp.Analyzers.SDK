@@ -2,7 +2,6 @@ module PartialApp.Analyzer.Test
 
 open FSharp.Compiler.CodeAnalysis
 open NUnit.Framework
-open FSharp.Compiler.Text
 open FSharp.Analyzers.SDK
 open FSharp.Analyzers.SDK.TestHelpers
 
@@ -11,21 +10,7 @@ let mutable projectOptions: FSharpProjectOptions = FSharpProjectOptions.zero
 [<SetUp>]
 let Setup () =
     task {
-        let! opts =
-            mkOptionsFromProject
-                // Todo: changing this to net8.0 makes "dotnet test" fail when run inside the repo
-                // from outside the repo or in the IDE (but not in a debug session) the tests work fine with net8
-                "net7.0"
-                [
-                    {
-                        Name = "Newtonsoft.Json"
-                        Version = "13.0.3"
-                    }
-                    {
-                        Name = "Fantomas.FCS"
-                        Version = "6.2.0"
-                    }
-                ]
+        let! opts = mkOptionsFromProject "net7.0" []
 
         projectOptions <- opts
     }
@@ -34,8 +19,26 @@ let assertCountOfWarnings msgs n =
     Assert.AreEqual(n, Seq.length msgs, "Actual count and expected count of warnings differed")
 
 let assertWarningsInLines (msgs: Message list) (expectedLines: Set<int>) =
-    let msgLines = msgs |> List.map (fun m -> m.Range.StartLine) |> Set.ofList
-    Assert.IsTrue((msgLines = expectedLines), "Actual lines and expected lines with warnings differed")
+    Assert.IsTrue(
+        AssertionHelpers.areWarningsInLines msgs expectedLines,
+        "Actual lines and expected lines with warnings differed"
+    )
+
+let assertMessageContains (expectedContent: string) (msg: Message) =
+    Assert.IsTrue(
+        AssertionHelpers.messageContains expectedContent msg,
+        $"Message does not contain expected content `{expectedContent}`, but was '{msg.Message}'"
+    )
+
+let assertAllMessagesContain (expectedContent: string) (msgs: Message list) =
+    Assert.IsTrue(
+        AssertionHelpers.allMessagesContain expectedContent msgs,
+        $"Messages do not contain expected content `{expectedContent}`"
+    )
+
+let assertAllMessagesContainAny (expectedContents: string list) (msgs: Message list) =
+    let s = String.concat ", " expectedContents
+    Assert.IsTrue(AssertionHelpers.messagesContainAny expectedContents msgs, $"Messages do not contain any of {s}")
 
 [<Test>]
 let ``warnings are emitted for partial app in match case`` () =
@@ -60,6 +63,7 @@ let myFuncWithMatch x =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 9 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for DU members`` () =
@@ -82,6 +86,7 @@ type MyU =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 11 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for record members`` () =
@@ -106,6 +111,7 @@ type MyRec =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 13 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for generic apps`` () =
@@ -126,6 +132,7 @@ let _ = myGenFunc<int> 23 // should warn
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 3
     assertWarningsInLines msgs (set [ 7; 8; 9 ])
+    assertAllMessagesContain "myGenFunc" msgs
 
 [<Test>]
 let ``warnings are emitted for generic apps in if-else`` () =
@@ -144,6 +151,7 @@ let _ = (if true then myGenFunc<int> 23 42 else myFunc 23) 88 // should warn
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 7 ])
+    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
 
 [<Test>]
 let ``warnings are emitted for funcs returned by match exprs`` () =
@@ -171,6 +179,7 @@ let _ =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 9; 10 ])
+    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
 
 [<Test>]
 let ``warnings are emitted for parameters from if-else exprs`` () =
@@ -189,6 +198,7 @@ let _ = myFunc (if true then 1 else 0) (if true then 1 else 0) // should not war
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 6 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for parameters from match-lambda exprs`` () =
@@ -234,6 +244,7 @@ let _ =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 16; 27 ])
+    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
 
 [<Test>]
 let ``warnings are emitted for record fields`` () =
@@ -264,6 +275,7 @@ let xxx =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 16 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted in sequential exprs`` () =
@@ -284,6 +296,7 @@ let partapp1 =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 7; 8 ])
+    assertAllMessagesContain "myFunc" msgs
 
 [<Test>]
 let ``warnings are emitted in simple bindings`` () =
@@ -301,6 +314,7 @@ let partapp2 = myFunc 4 // should warn
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 6 ])
+    assertMessageContains "myFunc" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for operators`` () =
@@ -317,6 +331,7 @@ let partapp4 = (+) 4 // should warn
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 5 ])
+    assertMessageContains "op_Addition" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for module functions`` () =
@@ -332,6 +347,7 @@ let partapp5: (int seq -> int seq) = Seq.map (fun x -> x + 1) // should warn
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 1
     assertWarningsInLines msgs (set [ 4 ])
+    assertMessageContains "map" msgs[0]
 
 [<Test>]
 let ``warnings are emitted for top level exprs`` () =
@@ -353,6 +369,7 @@ module SubMod =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 6; 10 ])
+    assertAllMessagesContain "myFunc" msgs
 
 [<Test>]
 let ``warnings are emitted for let bindings in classes`` () =
@@ -380,6 +397,7 @@ type MyClass() =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 5
     assertWarningsInLines msgs (set [ 9; 10; 13; 15; 16 ])
+    assertAllMessagesContainAny [ "myFunc"; "op_Addition"; "map" ] msgs
 
 [<Test>]
 let ``warnings are emitted for class members`` () =
@@ -411,6 +429,7 @@ type MyClass() =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 5
     assertWarningsInLines msgs (set [ 9; 10; 13; 17; 18 ])
+    assertAllMessagesContain "myFunc" msgs
 
 [<Test>]
 let ``warnings are emitted for interface impls`` () =
@@ -434,6 +453,7 @@ type MyClass() =
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 10; 11 ])
+    assertAllMessagesContain "myFunc" msgs
 
 [<Test>]
 let ``warnings are emitted for do exprs`` () =
@@ -454,3 +474,4 @@ module M
     let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
     assertCountOfWarnings msgs 2
     assertWarningsInLines msgs (set [ 7; 8 ])
+    assertAllMessagesContain "myFunc" msgs
