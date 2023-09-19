@@ -1,4 +1,4 @@
-module FSharp.Analyzers.SDK.TestHelpers
+module FSharp.Analyzers.SDK.Testing
 
 open System.Threading.Tasks
 open FSharp.Compiler.CodeAnalysis
@@ -15,11 +15,11 @@ type Package = { Name: string; Version: string }
 /// <returns>FSharpProjectOptions</returns>
 val mkOptionsFromProject: framework: string -> additionalPkgs: Package list -> Task<FSharpProjectOptions>
 
-val getContext: opts: FSharpProjectOptions -> source: string -> Context
+val getContext: opts: FSharpProjectOptions -> source: string -> CliContext
 
-module AssertionHelpers =
+module Assert =
 
-    val areWarningsInLines: msgs: Message list -> expectedLines: Set<int> -> bool
+    val hasWarningsInLines: expectedLines: Set<int> -> msgs: Message list -> bool
 
     val messageContains: expectedContent: string -> msg: Message -> bool
 

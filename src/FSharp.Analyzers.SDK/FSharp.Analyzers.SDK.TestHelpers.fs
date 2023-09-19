@@ -1,5 +1,6 @@
-module FSharp.Analyzers.SDK.TestHelpers
+module FSharp.Analyzers.SDK.Testing
 
+// Don't warn about using NotifyFileChanged of the FCS API
 #nowarn "57"
 
 open FSharp.Compiler.Text
@@ -7,6 +8,8 @@ open Microsoft.Build.Logging.StructuredLogger
 open CliWrap
 open System
 open System.IO
+open System.Collections.Generic
+open System.Collections.ObjectModel
 open FSharp.Compiler.CodeAnalysis
 
 type FSharpProjectOptions with
@@ -124,16 +127,11 @@ let createProject (binLogPath: string) (tmpProjectDir: string) (framework: strin
         try
             Directory.CreateDirectory(tmpProjectDir) |> ignore
 
-            // Todo remove after net8 issue is solved
-            let! _ =
-                Cli
-                    .Wrap("dotnet")
-                    .WithWorkingDirectory(tmpProjectDir)
-                    .WithArguments("--version")
-                    .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOutBuffer))
-                    .WithStandardErrorPipe(PipeTarget.ToStringBuilder(stdErrBuffer))
-                    .WithValidation(CommandResultValidation.ZeroExitCode)
-                    .ExecuteAsync()
+            // needed to escape the global.json circle of influence in a unit testing process
+            let envDic = Dictionary<string, string>()
+            envDic["MSBuildExtensionsPath"] <- null
+            envDic["MSBuildSDKsPath"] <- null
+            let roDic = ReadOnlyDictionary(envDic)
 
             let! _ =
                 Cli
@@ -145,21 +143,11 @@ let createProject (binLogPath: string) (tmpProjectDir: string) (framework: strin
                     .WithValidation(CommandResultValidation.ZeroExitCode)
                     .ExecuteAsync()
 
-            // Todo remove after net8 issue is solved
-            let! _ =
-                Cli
-                    .Wrap("dotnet")
-                    .WithWorkingDirectory(tmpProjectDir)
-                    .WithArguments("--version")
-                    .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOutBuffer))
-                    .WithStandardErrorPipe(PipeTarget.ToStringBuilder(stdErrBuffer))
-                    .WithValidation(CommandResultValidation.ZeroExitCode)
-                    .ExecuteAsync()
-
             for p in additionalPkgs do
                 let! _ =
                     Cli
                         .Wrap("dotnet")
+                        .WithEnvironmentVariables(roDic)
                         .WithWorkingDirectory(tmpProjectDir)
                         .WithArguments($"add package {p.Name} --version {p.Version}")
                         .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOutBuffer))
@@ -172,6 +160,7 @@ let createProject (binLogPath: string) (tmpProjectDir: string) (framework: strin
             let! _ =
                 Cli
                     .Wrap("dotnet")
+                    .WithEnvironmentVariables(roDic)
                     .WithWorkingDirectory(tmpProjectDir)
                     .WithArguments($"build -bl:{binLogPath}")
                     .WithStandardOutputPipe(PipeTarget.ToStringBuilder(stdOutBuffer))
@@ -233,7 +222,8 @@ let getContext (opts: FSharpProjectOptions) source =
     let pathToAnalyzerDlls = Path.GetFullPath(".")
 
     let foundDlls, registeredAnalyzers =
-        Client.loadAnalyzers printError pathToAnalyzerDlls
+        let client = Client<CliAnalyzerAttribute, CliContext>()
+        client.LoadAnalyzers printError pathToAnalyzerDlls
 
     if foundDlls = 0 then
         failwith $"no Dlls found in {pathToAnalyzerDlls}"
@@ -253,19 +243,17 @@ let getContext (opts: FSharpProjectOptions) source =
     if Array.isEmpty allSymbolUses then
         failwith "no symboluses"
 
-    match Utils.typeCheckFile fcs (Utils.SourceOfSource.DiscreteSource source, fileName, opts) with
-    | Some(file, text, parseRes, result) ->
-        let ctx =
-            Utils.createContext (checkProjectResults, allSymbolUses) (file, text, parseRes, result)
+    let printError s = printf $"{s}"
 
-        match ctx with
-        | Some c -> c
-        | None -> failwith "Context creation failed"
+    match Utils.typeCheckFile fcs printError opts fileName (Utils.SourceOfSource.DiscreteSource source) with
+    | Some(parseFileResults, checkFileResults) ->
+        let sourceText = SourceText.ofString source
+        Utils.createContext checkProjectResults fileName sourceText (parseFileResults, checkFileResults)
     | None -> failwith "typechecking file failed"
 
-module AssertionHelpers =
+module Assert =
 
-    let areWarningsInLines (msgs: FSharp.Analyzers.SDK.Message list) (expectedLines: Set<int>) =
+    let hasWarningsInLines (expectedLines: Set<int>) (msgs: FSharp.Analyzers.SDK.Message list) =
         let msgLines = msgs |> List.map (fun m -> m.Range.StartLine) |> Set.ofList
         msgLines = expectedLines
 

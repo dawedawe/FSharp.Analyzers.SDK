@@ -3,7 +3,8 @@ module PartialApp.Analyzer.Test
 open FSharp.Compiler.CodeAnalysis
 open NUnit.Framework
 open FSharp.Analyzers.SDK
-open FSharp.Analyzers.SDK.TestHelpers
+open FSharp.Analyzers.SDK.Testing
+open FSharp.Analyzers.SDK.Testing.Assert
 
 let mutable projectOptions: FSharpProjectOptions = FSharpProjectOptions.zero
 
@@ -19,32 +20,30 @@ let assertCountOfWarnings msgs n =
     Assert.AreEqual(n, Seq.length msgs, "Actual count and expected count of warnings differed")
 
 let assertWarningsInLines (msgs: Message list) (expectedLines: Set<int>) =
-    Assert.IsTrue(
-        AssertionHelpers.areWarningsInLines msgs expectedLines,
-        "Actual lines and expected lines with warnings differed"
-    )
+    Assert.IsTrue(hasWarningsInLines expectedLines msgs, "Actual lines and expected lines with warnings differed")
 
 let assertMessageContains (expectedContent: string) (msg: Message) =
     Assert.IsTrue(
-        AssertionHelpers.messageContains expectedContent msg,
+        messageContains expectedContent msg,
         $"Message does not contain expected content `{expectedContent}`, but was '{msg.Message}'"
     )
 
 let assertAllMessagesContain (expectedContent: string) (msgs: Message list) =
     Assert.IsTrue(
-        AssertionHelpers.allMessagesContain expectedContent msgs,
+        allMessagesContain expectedContent msgs,
         $"Messages do not contain expected content `{expectedContent}`"
     )
 
 let assertAllMessagesContainAny (expectedContents: string list) (msgs: Message list) =
     let s = String.concat ", " expectedContents
-    Assert.IsTrue(AssertionHelpers.messagesContainAny expectedContents msgs, $"Messages do not contain any of {s}")
+    Assert.IsTrue(messagesContainAny expectedContents msgs, $"Messages do not contain any of {s}")
 
 [<Test>]
 let ``warnings are emitted for partial app in match case`` () =
+    async {
 
-    let source =
-        """
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -59,17 +58,18 @@ let myFuncWithMatch x =
         false
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 9 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 9 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for DU members`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -82,17 +82,18 @@ type MyU =
     static member MyUnionMember2 x = myFunc x // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 11 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 11 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for record members`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -107,17 +108,18 @@ type MyRec =
     static member MyRecMember2 x = myFunc x // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 13 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 13 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for generic apps`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myGenFunc<'t> x y z = x + y + z
@@ -128,17 +130,18 @@ let _ = (myGenFunc<int> 23 42) // should warn
 let _ = myGenFunc<int> 23 // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 3
-    assertWarningsInLines msgs (set [ 7; 8; 9 ])
-    assertAllMessagesContain "myGenFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 3
+        assertWarningsInLines msgs (set [ 7; 8; 9 ])
+        assertAllMessagesContain "myGenFunc" msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for generic apps in if-else`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -147,17 +150,18 @@ let myGenFunc<'t> x y z = x + y + z
 let _ = (if true then myGenFunc<int> 23 42 else myFunc 23) 88 // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 7 ])
-    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 7 ])
+        assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for funcs returned by match exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -175,17 +179,18 @@ let _ =
         | 2 -> myFunc 1 2) // should not warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 9; 10 ])
-    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 9; 10 ])
+        assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for parameters from if-else exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -194,17 +199,18 @@ let _ = myFunc (if true then 1 else 0) // should warn
 let _ = myFunc (if true then 1 else 0) (if true then 1 else 0) // should not warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 6 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 6 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for parameters from match-lambda exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -240,17 +246,18 @@ let _ =
             | _ -> myGenFunc<int> 23 42 101) // should not warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 16; 27 ])
-    assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 16; 27 ])
+        assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for record fields`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -271,17 +278,18 @@ let xxx =
     r
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 16 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 16 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted in sequential exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -292,17 +300,18 @@ let partapp1 =
     myFunc 3 44 // should not warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 7; 8 ])
-    assertAllMessagesContain "myFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 7; 8 ])
+        assertAllMessagesContain "myFunc" msgs
+    }
 
 [<Test>]
 let ``warnings are emitted in simple bindings`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -310,50 +319,53 @@ let myFunc x y = x + y
 let partapp2 = myFunc 4 // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 6 ])
-    assertMessageContains "myFunc" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 6 ])
+        assertMessageContains "myFunc" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for operators`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let partapp3 = (+) 4 55 // should not warn
 let partapp4 = (+) 4 // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 5 ])
-    assertMessageContains "op_Addition" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 5 ])
+        assertMessageContains "op_Addition" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for module functions`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let partapp5: (int seq -> int seq) = Seq.map (fun x -> x + 1) // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 1
-    assertWarningsInLines msgs (set [ 4 ])
-    assertMessageContains "map" msgs[0]
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 1
+        assertWarningsInLines msgs (set [ 4 ])
+        assertMessageContains "map" msgs[0]
+    }
 
 [<Test>]
 let ``warnings are emitted for top level exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 let myFunc x y = x + y
@@ -365,17 +377,18 @@ module SubMod =
     myFunc 123 // shoud warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 6; 10 ])
-    assertAllMessagesContain "myFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 6; 10 ])
+        assertAllMessagesContain "myFunc" msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for let bindings in classes`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 type MyClass() =
@@ -393,17 +406,18 @@ type MyClass() =
     let partapp5: (int seq -> int seq) = Seq.map (fun x -> x + 1) // should warn
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 5
-    assertWarningsInLines msgs (set [ 9; 10; 13; 15; 16 ])
-    assertAllMessagesContainAny [ "myFunc"; "op_Addition"; "map" ] msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 5
+        assertWarningsInLines msgs (set [ 9; 10; 13; 15; 16 ])
+        assertAllMessagesContainAny [ "myFunc"; "op_Addition"; "map" ] msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for class members`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 type MyClass() =
@@ -425,17 +439,18 @@ type MyClass() =
         and get () = x
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 5
-    assertWarningsInLines msgs (set [ 9; 10; 13; 17; 18 ])
-    assertAllMessagesContain "myFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 5
+        assertWarningsInLines msgs (set [ 9; 10; 13; 17; 18 ])
+        assertAllMessagesContain "myFunc" msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for interface impls`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
 
 type MyClass() =
@@ -449,17 +464,18 @@ type MyClass() =
             failwith "todo"
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 10; 11 ])
-    assertAllMessagesContain "myFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 10; 11 ])
+        assertAllMessagesContain "myFunc" msgs
+    }
 
 [<Test>]
 let ``warnings are emitted for do exprs`` () =
-
-    let source =
-        """
+    async {
+        let source =
+            """
 module M
     module S =
         let myFunc x y = x + y
@@ -470,8 +486,9 @@ module M
             ()
 """
 
-    let ctx = getContext projectOptions source
-    let msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
-    assertCountOfWarnings msgs 2
-    assertWarningsInLines msgs (set [ 7; 8 ])
-    assertAllMessagesContain "myFunc" msgs
+        let ctx = getContext projectOptions source
+        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        assertCountOfWarnings msgs 2
+        assertWarningsInLines msgs (set [ 7; 8 ])
+        assertAllMessagesContain "myFunc" msgs
+    }

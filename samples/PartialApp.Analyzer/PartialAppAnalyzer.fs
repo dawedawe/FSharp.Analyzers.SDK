@@ -258,9 +258,9 @@ and visitModuleDecls (handler: Handler) (decls: SynModuleDecl list) =
 and visitModuleOrNamespace (handler: Handler) (SynModuleOrNamespace(decls = decls): SynModuleOrNamespace) =
     visitModuleDecls handler decls
 
-let tryGetParameterCount (symbolUses: FSharpSymbolUse array) r =
+let tryGetParameterCount (symbolUses: FSharpSymbolUse seq) r =
     symbolUses
-    |> Array.tryFind (fun s -> s.Range = r)
+    |> Seq.tryFind (fun s -> s.Range = r)
     |> Option.map (fun s ->
         match s.Symbol with
         | :? FSharpMemberOrFunctionOrValue as mfv -> Some mfv.CurriedParameterGroups.Count
@@ -268,37 +268,45 @@ let tryGetParameterCount (symbolUses: FSharpSymbolUse array) r =
     )
     |> Option.flatten
 
-[<Analyzer "PartialAppAnalyzer">]
-let partialAppAnalyzer: Analyzer =
-    fun (context: Context) ->
-        let state = ResizeArray<string * FSharp.Compiler.Text.range * int>()
-        let handler: Handler = fun (ident, r, args) -> state.Add(ident, r, args)
+[<CliAnalyzer "PartialAppAnalyzer">]
+let partialAppAnalyzer: Analyzer<CliContext> =
+    fun (context: CliContext) ->
+        async {
+            let state = ResizeArray<string * FSharp.Compiler.Text.range * int>()
+            let handler: Handler = fun (ident, r, args) -> state.Add(ident, r, args)
 
-        match context.ParseFileResults.ParseTree with
-        | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(contents = contents)) ->
-            contents |> List.iter (visitModuleOrNamespace handler)
-        | _ -> ()
+            match context.ParseFileResults.ParseTree with
+            | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(contents = contents)) ->
+                contents |> List.iter (visitModuleOrNamespace handler)
+            | _ -> ()
 
-        seq {
-            for app in state do
-                let ident, range, providedArgsCount = app
-                let parameterCount = tryGetParameterCount context.SymbolUsesOfFile range
+            let msgs =
+                seq {
+                    for app in state do
+                        let ident, range, providedArgsCount = app
 
-                match parameterCount with
-                | Some paramsCount ->
-                    if providedArgsCount < paramsCount then // use LESS, not NOT EQUAL because of CEs, printf, etc. take more than paramsCount
+                        let parameterCount =
+                            let symbolUses = context.CheckFileResults.GetAllUsesOfAllSymbolsInFile()
+                            tryGetParameterCount symbolUses range
 
-                        let msg =
-                            {
-                                Type = "Partial Application Analyzer"
-                                Message = $"partial application should not be used: {ident} at {range}"
-                                Code = "PA001"
-                                Severity = Warning
-                                Range = range
-                                Fixes = []
-                            }
+                        match parameterCount with
+                        | Some paramsCount ->
+                            if providedArgsCount < paramsCount then // use LESS, not NOT EQUAL because of CEs, printf, etc. take more than paramsCount
 
-                        yield msg
-                | None -> ()
+                                let msg =
+                                    {
+                                        Type = "Partial Application Analyzer"
+                                        Message = $"partial application should not be used: {ident} at {range}"
+                                        Code = "PA001"
+                                        Severity = Warning
+                                        Range = range
+                                        Fixes = []
+                                    }
+
+                                yield msg
+                        | None -> ()
+                }
+                |> Seq.toList
+
+            return msgs
         }
-        |> Seq.toList
