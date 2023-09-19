@@ -59,7 +59,7 @@ let myFuncWithMatch x =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 9 ])
         assertMessageContains "myFunc" msgs[0]
@@ -83,7 +83,7 @@ type MyU =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 11 ])
         assertMessageContains "myFunc" msgs[0]
@@ -109,7 +109,7 @@ type MyRec =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 13 ])
         assertMessageContains "myFunc" msgs[0]
@@ -131,7 +131,7 @@ let _ = myGenFunc<int> 23 // should warn
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 3
         assertWarningsInLines msgs (set [ 7; 8; 9 ])
         assertAllMessagesContain "myGenFunc" msgs
@@ -151,7 +151,7 @@ let _ = (if true then myGenFunc<int> 23 42 else myFunc 23) 88 // should warn
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 7 ])
         assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
@@ -180,7 +180,7 @@ let _ =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 9; 10 ])
         assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
@@ -200,7 +200,7 @@ let _ = myFunc (if true then 1 else 0) (if true then 1 else 0) // should not war
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 6 ])
         assertMessageContains "myFunc" msgs[0]
@@ -247,7 +247,7 @@ let _ =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 16; 27 ])
         assertAllMessagesContainAny [ "myFunc"; "myGenFunc" ] msgs
@@ -279,7 +279,7 @@ let xxx =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 16 ])
         assertMessageContains "myFunc" msgs[0]
@@ -301,7 +301,7 @@ let partapp1 =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 7; 8 ])
         assertAllMessagesContain "myFunc" msgs
@@ -320,7 +320,7 @@ let partapp2 = myFunc 4 // should warn
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 6 ])
         assertMessageContains "myFunc" msgs[0]
@@ -338,7 +338,7 @@ let partapp4 = (+) 4 // should warn
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 5 ])
         assertMessageContains "op_Addition" msgs[0]
@@ -355,7 +355,7 @@ let partapp5: (int seq -> int seq) = Seq.map (fun x -> x + 1) // should warn
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 1
         assertWarningsInLines msgs (set [ 4 ])
         assertMessageContains "map" msgs[0]
@@ -378,7 +378,7 @@ module SubMod =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 6; 10 ])
         assertAllMessagesContain "myFunc" msgs
@@ -407,7 +407,7 @@ type MyClass() =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 5
         assertWarningsInLines msgs (set [ 9; 10; 13; 15; 16 ])
         assertAllMessagesContainAny [ "myFunc"; "op_Addition"; "map" ] msgs
@@ -440,7 +440,7 @@ type MyClass() =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 5
         assertWarningsInLines msgs (set [ 9; 10; 13; 17; 18 ])
         assertAllMessagesContain "myFunc" msgs
@@ -465,7 +465,7 @@ type MyClass() =
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 10; 11 ])
         assertAllMessagesContain "myFunc" msgs
@@ -487,7 +487,7 @@ module M
 """
 
         let ctx = getContext projectOptions source
-        let! msgs = PartialAppAnalyzer.partialAppAnalyzer ctx
+        let! msgs = PartialAppAnalyzer.partialAppCliAnalyzer ctx
         assertCountOfWarnings msgs 2
         assertWarningsInLines msgs (set [ 7; 8 ])
         assertAllMessagesContain "myFunc" msgs

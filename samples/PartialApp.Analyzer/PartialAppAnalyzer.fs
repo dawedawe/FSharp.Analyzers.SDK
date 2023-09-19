@@ -268,45 +268,54 @@ let tryGetParameterCount (symbolUses: FSharpSymbolUse seq) r =
     )
     |> Option.flatten
 
+let analyze parseTree (checkFileResults: FSharpCheckFileResults) =
+    let state = ResizeArray<string * FSharp.Compiler.Text.range * int>()
+    let handler: Handler = fun (ident, r, args) -> state.Add(ident, r, args)
+
+    match parseTree with
+    | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(contents = contents)) ->
+        contents |> List.iter (visitModuleOrNamespace handler)
+    | _ -> ()
+
+    let msgs =
+        seq {
+            for app in state do
+                let ident, range, providedArgsCount = app
+
+                let parameterCount =
+                    let symbolUses = checkFileResults.GetAllUsesOfAllSymbolsInFile()
+                    tryGetParameterCount symbolUses range
+
+                match parameterCount with
+                | Some paramsCount ->
+                    if providedArgsCount < paramsCount then // use LESS, not NOT EQUAL because of CEs, printf, etc. take more than paramsCount
+
+                        let msg =
+                            {
+                                Type = "Partial Application Analyzer"
+                                Message = $"partial application should not be used: {ident} at {range}"
+                                Code = "PA001"
+                                Severity = Warning
+                                Range = range
+                                Fixes = []
+                            }
+
+                        yield msg
+                | None -> ()
+        }
+        |> Seq.toList
+
+    msgs
+
 [<CliAnalyzer "PartialAppAnalyzer">]
-let partialAppAnalyzer: Analyzer<CliContext> =
-    fun (context: CliContext) ->
+let partialAppCliAnalyzer: Analyzer<CliContext> =
+    fun context -> async { return analyze context.ParseFileResults.ParseTree context.CheckFileResults }
+
+[<EditorAnalyzer "PartialAppAnalyzer">]
+let partialAppEditorAnalyzer: Analyzer<EditorContext> =
+    fun context ->
         async {
-            let state = ResizeArray<string * FSharp.Compiler.Text.range * int>()
-            let handler: Handler = fun (ident, r, args) -> state.Add(ident, r, args)
-
-            match context.ParseFileResults.ParseTree with
-            | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(contents = contents)) ->
-                contents |> List.iter (visitModuleOrNamespace handler)
-            | _ -> ()
-
-            let msgs =
-                seq {
-                    for app in state do
-                        let ident, range, providedArgsCount = app
-
-                        let parameterCount =
-                            let symbolUses = context.CheckFileResults.GetAllUsesOfAllSymbolsInFile()
-                            tryGetParameterCount symbolUses range
-
-                        match parameterCount with
-                        | Some paramsCount ->
-                            if providedArgsCount < paramsCount then // use LESS, not NOT EQUAL because of CEs, printf, etc. take more than paramsCount
-
-                                let msg =
-                                    {
-                                        Type = "Partial Application Analyzer"
-                                        Message = $"partial application should not be used: {ident} at {range}"
-                                        Code = "PA001"
-                                        Severity = Warning
-                                        Range = range
-                                        Fixes = []
-                                    }
-
-                                yield msg
-                        | None -> ()
-                }
-                |> Seq.toList
-
-            return msgs
+            match context.CheckFileResults with
+            | Some checkFileResults -> return analyze context.ParseFileResults.ParseTree checkFileResults
+            | None -> return []
         }
