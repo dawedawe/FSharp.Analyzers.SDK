@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="UnitTests.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FSharp.Core" />
+      <PackageReference Include="Microsoft.NET.Test.Sdk" />
+      <PackageReference Include="NUnit" />
+      <PackageReference Include="NUnit3TestAdapter" />
+      <PackageReference Include="NUnit.Analyzers" />
+      <PackageReference Include="coverlet.collector" />
+      <PackageReference Include="FSharp.Compiler.Service"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\FSharp.Analyzers.SDK\FSharp.Analyzers.SDK.fsproj" />
+      <ProjectReference Include="..\..\src\FSharp.Analyzers.SDK.Testing\FSharp.Analyzers.SDK.Testing.fsproj" />
+      <ProjectReference Include="..\JsonSerializerOptionsAnalyzer\JsonSerializerOptionsAnalyzer.fsproj" />
+    </ItemGroup>
+
+</Project>
