@@ -120,3 +120,29 @@ let f (json: string) (jsonStream: System.IO.Stream) =
         Assert.IsTrue(Assert.hasWarningsInLines (set [7 .. 12]) msgs)
         Assert.IsTrue(Assert.allMessagesContain "JsonSerializerOptions instances should be cached" msgs)
     }
+
+[<Test>]
+let ``no warning is emitted for Serialize call with cached options`` () =
+    async {
+        let source =
+            """
+module M
+
+open System.Text.Json
+
+let cachedOptions = new JsonSerializerOptions ()
+
+let f (json: string) (jsonStream: System.IO.Stream) =
+    let _ = JsonSerializer.Serialize<string>(json, cachedOptions)
+    let _ = JsonSerializer.SerializeAsync<string>(jsonStream, json, cachedOptions)
+    let _ = JsonSerializer.SerializeToDocument<string>(json, cachedOptions)
+    let _ = JsonSerializer.SerializeToElement<string>(json, cachedOptions)
+    let _ = JsonSerializer.SerializeToNode<string>(json, cachedOptions)
+    let _ = JsonSerializer.SerializeToUtf8Bytes<string>(json, cachedOptions)
+    ()
+    """
+
+        let ctx = getContext projectOptions source
+        let! msgs = jsonSerializerOptionsAnalyzer ctx
+        Assert.IsEmpty msgs
+    }
