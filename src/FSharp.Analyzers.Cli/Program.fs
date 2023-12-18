@@ -13,6 +13,7 @@ open Microsoft.CodeAnalysis.Sarif.Writers
 open Microsoft.Extensions.Logging
 open Ionide.ProjInfo
 open FSharp.Analyzers.Cli.CustomLogging
+open Vertical.SpectreLogger
 
 type Arguments =
     | Project of string list
@@ -245,7 +246,30 @@ let printMessages (msgs: AnalyzerMessage list) =
     use factory =
         LoggerFactory.Create(fun builder ->
             builder
-                .AddCustomFormatter(fun options -> options.UseAnalyzersMsgStyle <- true)
+                //     .AddCustomFormatter(fun options -> options.UseAnalyzersMsgStyle <- true)
+                //     .SetMinimumLevel(LogLevel.Trace)
+                // |> ignore
+                .AddSpectreConsole(fun config ->
+                    config
+                        .ConfigureProfile(
+                            LogLevel.Trace,
+                            (fun profile -> profile.OutputTemplate <- "[cyan1]{Message}[/]")
+                        )
+                        .ConfigureProfile(
+                            LogLevel.Information,
+                            (fun profile -> profile.OutputTemplate <- "[blue]{Message}[/]")
+                        )
+                        .ConfigureProfile(
+                            LogLevel.Warning,
+                            (fun profile -> profile.OutputTemplate <- "[olive]{Message}[/]")
+                        )
+                        .ConfigureProfile(
+                            LogLevel.Error,
+                            fun profile -> profile.OutputTemplate <- "[red]{Message}[/]"
+                        )
+
+                    |> ignore
+                )
                 .SetMinimumLevel(LogLevel.Trace)
             |> ignore
         )
